@@ -152,14 +152,14 @@ public class GameUI : MonoBehaviour
         else
         {
             GameOverUI();
-            continueWithTimePanel.SetActive(false);
-            commonPanel.SetActive(true);
-            gameOverPanel.SetActive(true);
         }
     }
 
     public void GameOverUI()
     {
+        continueWithTimePanel.SetActive(false);
+        commonPanel.SetActive(true);
+        gameOverPanel.SetActive(true);
         playerScore.SaveStats();
         gameoverScoreText.text = $"{playerScore.score:0}";
         gameoverHighScoreText.text = $"BestScore- {playerScore.highscore:0}";
@@ -184,6 +184,7 @@ public class GameUI : MonoBehaviour
             --continuePanelTimer;
             yield return new WaitForSeconds(1f);
         }
+        GameOverUI();
     }
 
     public void WatchAdToContinue()
