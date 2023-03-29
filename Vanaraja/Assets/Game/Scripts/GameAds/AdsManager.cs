@@ -1,208 +1,191 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using GoogleMobileAds;
-using GoogleMobileAds.Api;
 using System;
+using UnityEngine;
+using Yodo1.MAS;
 
 public class AdsManager : MonoBehaviour
 {
-    public GameObject gdprPanel;
+    public static AdsManager Instance { set; get; }
 
-    private const string userConsent = "UserConsent";
-    private const string ccpaConsent = "CcpaConsent";
+    public Action<bool> RewardFuntion;
 
-    public string ccpaValue = "0";
-    public string userValue = "0";
-
-    public InterstitialAd interstitialAd;
-    public RewardedAd rewardedAd;
-
-    public string privacyUrl = "https://sites.google.com/view/nerdyquest/home";
-    private string rewardedID= "ca-app-pub-7409912642531316/9949235493";
-    private string interstitialID = "ca-app-pub-7409912642531316/4845082627";
-
-    public Action<bool> RewardFunction;
-
-    public static AdsManager Instance;
-
-    private void Awake()
+    void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-        }
-        else
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
-    private void Start()
+    void Start()
     {
-        if (PlayerPrefs.HasKey(userConsent) && PlayerPrefs.HasKey(ccpaConsent))
+        Debug.Log(SystemInfo.deviceUniqueIdentifier);
+        Yodo1U3dMasCallback.OnSdkInitializedEvent += (success, error) =>
         {
-            userValue = PlayerPrefs.GetString(userConsent, "0");
-            ccpaValue = PlayerPrefs.GetString(ccpaConsent, "0");
-            gdprPanel.SetActive(false);
-            Init();
-        }
-        else
-        {
-            gdprPanel.SetActive(true);
-        }
-    }
-
-    public void Init()
-    {
-        FindObjectOfType<StartScene>().StartSplash();
-        RequestConfiguration.Builder requestConfiguration = new RequestConfiguration.Builder();
-        requestConfiguration.SetTagForChildDirectedTreatment(TagForChildDirectedTreatment.Unspecified);
-        requestConfiguration.SetMaxAdContentRating(MaxAdContentRating.Unspecified);
-        requestConfiguration.SetTagForUnderAgeOfConsent(TagForUnderAgeOfConsent.Unspecified);
-        MobileAds.SetRequestConfiguration(requestConfiguration.build());
-        MobileAds.Initialize(initStatus => { });
-        RequestAndLoadRewarded();
-    }
-
-    public void GDPRInput(bool _value)
-    {
-        // if true then allow personalized ads
-        StartCoroutine(DelayedInput(_value));
-    }
-
-    public IEnumerator DelayedInput(bool _value)
-    {
-        yield return new WaitForSeconds(1f);
-        if (_value)
-        {
-            userValue = "0";
-            ccpaValue = "0";
-            PlayerPrefs.SetString(userConsent, "0");
-            PlayerPrefs.SetString(ccpaConsent, "0");
-        }
-        else
-        {
-            userValue = "1";
-            ccpaValue = "1";
-            PlayerPrefs.SetString(userConsent, "1");
-            PlayerPrefs.SetString(ccpaConsent, "1");
-        }
-        Init();
-        PlayerPrefs.Save();
-        gdprPanel.SetActive(false);
-    }
-
-    public AdRequest GetAdRequestBuild()
-    {
-        return new AdRequest.Builder().AddExtra("npa", userValue).AddExtra("rdp", ccpaConsent).AddExtra("is_designed_for_families", "false").Build();
-    }
-
-    #region Interstitial
-    public void RequestAndLoadInterstitial()
-    {
-        InterstitialAd.Load(interstitialID, GetAdRequestBuild(), (InterstitialAd ad, LoadAdError loadAdError) =>
-        {
-            if (loadAdError != null)
+            Debug.Log("[Yodo1 Mas] OnSdkInitializedEvent, success:" + success + ", error: " + error.ToString());
+            if (success)
             {
-                return;
+                Debug.Log("[Yodo1 Mas] The initialization has succeeded");
+
+                FindObjectOfType<StartScene>().StartSplash();
+                InitializeInterstitial();
+                InitializeRewardedAds();
+
             }
-
-            interstitialAd = ad;
-
-            ad.OnAdFullScreenContentClosed += () =>
+            else
             {
-                ad.Destroy();
-            };
+                FindObjectOfType<StartScene>().StartSplash();
+                Debug.Log("[Yodo1 Mas] The initialization has failed");
+            }
+        };
 
-            ad.OnAdFullScreenContentFailed += (AdError error) =>
-            {
-                Debug.Log("Rewarded intersitial ad failed to show with error: " + error.GetMessage());
-                ad.Destroy();
-            };
-        });
+        Yodo1AdBuildConfig config = new Yodo1AdBuildConfig().enableUserPrivacyDialog(true);
+        Yodo1U3dMas.SetAdBuildConfig(config);
+
+        Yodo1U3dMas.InitializeSdk();
+    }
+
+    /**************** Interstitials code ****************/
+
+    public void InitializeInterstitial()
+    {
+        // Instantiate
+        Yodo1U3dInterstitialAd.GetInstance();
+
+        // Ad Events
+        Yodo1U3dInterstitialAd.GetInstance().OnAdLoadedEvent += OnInterstitialAdLoadedEvent;
+        Yodo1U3dInterstitialAd.GetInstance().OnAdLoadFailedEvent += OnInterstitialAdLoadFailedEvent;
+        Yodo1U3dInterstitialAd.GetInstance().OnAdOpenedEvent += OnInterstitialAdOpenedEvent;
+        Yodo1U3dInterstitialAd.GetInstance().OnAdOpenFailedEvent += OnInterstitialAdOpenFailedEvent;
+        Yodo1U3dInterstitialAd.GetInstance().OnAdClosedEvent += OnInterstitialAdClosedEvent;
+
+        // Load an ad
+        LoadInterstitial();
+    }
+
+    public void LoadInterstitial()
+    {
+        Yodo1U3dInterstitialAd.GetInstance().LoadAd();
     }
 
     public void ShowInterstitial()
     {
-        if (interstitialAd != null && interstitialAd.CanShowAd())
+
+        if (Yodo1U3dInterstitialAd.GetInstance().IsLoaded())
         {
-            interstitialAd.Show();
+            Yodo1U3dInterstitialAd.GetInstance().ShowAd("Your Placement");
         }
         else
         {
-            RequestAndLoadInterstitial();
+            Debug.Log("[Yodo1 Mas] Interstitial ad has not been cached.");
         }
     }
 
-    #endregion
-
-    #region Rewarded
-    public void RequestAndLoadRewarded()
+    private void OnInterstitialAdLoadedEvent(Yodo1U3dInterstitialAd ad)
     {
-        RewardedAd.Load(rewardedID, GetAdRequestBuild(), (RewardedAd ad, LoadAdError loadError) =>
-        {
-            if (loadError != null)
-            {
-                Debug.Log("Rewarded ad failed to load with error: " + loadError.GetMessage());
-                return;
-            }
-            else if (ad == null)
-            {
-                Debug.Log("Rewarded ad failed to load.");
-                return;
-            }
-
-            rewardedAd = ad;
-        });
+        Debug.Log("[Yodo1 Mas] OnInterstitialAdLoadedEvent event received" + ad.GetHashCode());
     }
 
-    public void ShowRewardedVideo(Action<bool> Function)
+    private void OnInterstitialAdLoadFailedEvent(Yodo1U3dInterstitialAd ad, Yodo1U3dAdError adError)
     {
-        RewardFunction = Function;
-        if (rewardedAd != null && rewardedAd.CanShowAd())
+        Debug.Log("[Yodo1 Mas] OnInterstitialAdLoadFailedEvent event received with error: " + adError.ToString());
+    }
+
+    private void OnInterstitialAdOpenedEvent(Yodo1U3dInterstitialAd ad)
+    {
+        Debug.Log("[Yodo1 Mas] OnInterstitialAdOpenedEvent event received");
+    }
+
+    private void OnInterstitialAdOpenFailedEvent(Yodo1U3dInterstitialAd ad, Yodo1U3dAdError adError)
+    {
+        Debug.Log("[Yodo1 Mas] OnInterstitialAdOpenFailedEvent event received with error: " + adError.ToString());
+        Invoke(nameof(LoadDelayInterstitial), 1f);
+    }
+
+    private void OnInterstitialAdClosedEvent(Yodo1U3dInterstitialAd ad)
+    {
+        Debug.Log("[Yodo1 Mas] OnInterstitialAdClosedEvent event received");
+        Invoke(nameof(LoadDelayInterstitial), 1f);
+    }
+
+    public void LoadDelayInterstitial()
+    {
+        LoadInterstitial();
+    }
+
+    /**************** Rewarded ads code ****************/
+
+    public void InitializeRewardedAds()
+    {
+        Yodo1U3dRewardAd.GetInstance();
+
+        // Ad Events
+        Yodo1U3dRewardAd.GetInstance().OnAdLoadedEvent += OnRewardAdLoadedEvent;
+        Yodo1U3dRewardAd.GetInstance().OnAdLoadFailedEvent += OnRewardAdLoadFailedEvent;
+        Yodo1U3dRewardAd.GetInstance().OnAdOpenedEvent += OnRewardAdOpenedEvent;
+        Yodo1U3dRewardAd.GetInstance().OnAdOpenFailedEvent += OnRewardAdOpenFailedEvent;
+        Yodo1U3dRewardAd.GetInstance().OnAdClosedEvent += OnRewardAdClosedEvent;
+        Yodo1U3dRewardAd.GetInstance().OnAdEarnedEvent += OnRewardAdEarnedEvent;
+
+        // Load an ad
+        LoadRewardedAd();
+    }
+
+    public void LoadRewardedAd()
+    {
+        Yodo1U3dRewardAd.GetInstance().LoadAd();
+    }
+
+    public bool CanShowRewardedAd()
+    {
+        return Yodo1U3dRewardAd.GetInstance().IsLoaded();
+    }
+
+    public void ShowRewardedVideo(Action<bool> _function)
+    {
+        RewardFuntion = _function;
+        if (Yodo1U3dRewardAd.GetInstance().IsLoaded())
         {
-            rewardedAd.Show((Reward reward) =>
-            {
-                Invoke(nameof(TrueFunction), 1f);
-            });
+            Yodo1U3dRewardAd.GetInstance().ShowAd();
         }
         else
         {
-            RequestAndLoadRewarded();
+            Debug.Log("[Yodo1 Mas] Reward video ad has not been cached.");
         }
     }
 
-    public void TrueFunction()
+    private void OnRewardAdLoadedEvent(Yodo1U3dRewardAd ad)
     {
-        RewardFunction?.Invoke(true);
+        Debug.Log("[Yodo1 Mas] OnRewardAdLoadedEvent event received" + ad.GetHashCode());
     }
 
-    public void UserEarnedReward(object sender, Reward reward)
+    private void OnRewardAdLoadFailedEvent(Yodo1U3dRewardAd ad, Yodo1U3dAdError adError)
     {
-        RewardFunction(true);
+        Debug.Log("[Yodo1 Mas] OnRewardAdLoadFailedEvent event received with error: " + adError.ToString());
     }
 
-    public void OnAdClosed(object sender, EventArgs eventArgs)
+    private void OnRewardAdOpenedEvent(Yodo1U3dRewardAd ad)
     {
-        RequestAndLoadRewarded();
-    }
-    #endregion
-
-    public void OpenPrivacyLink() => Application.OpenURL(privacyUrl);
-
-    private void OnEnable()
-    {
-        //GameManager.GameOver += ShowInterstitial;
-        GameManager.GameStarted += RequestAndLoadInterstitial;
-        GameManager.GameStarted += RequestAndLoadRewarded;
+        Debug.Log("[Yodo1 Mas] OnRewardAdOpenedEvent event received");
     }
 
-    private void OnDisable()
+    private void OnRewardAdOpenFailedEvent(Yodo1U3dRewardAd ad, Yodo1U3dAdError adError)
     {
-        //GameManager.GameOver -= ShowInterstitial;
-        GameManager.GameStarted -= RequestAndLoadInterstitial;
-        GameManager.GameStarted -= RequestAndLoadRewarded;
+        Debug.Log("[Yodo1 Mas] OnRewardAdOpenFailedEvent event received with error: " + adError.ToString());
+        Invoke(nameof(LoadDelayRewarded), 1f);
+    }
+
+    private void OnRewardAdClosedEvent(Yodo1U3dRewardAd ad)
+    {
+        Debug.Log("[Yodo1 Mas] OnRewardAdClosedEvent event received");
+        Invoke(nameof(LoadDelayRewarded), 1f);
+    }
+    public void LoadDelayRewarded()
+    {
+        LoadRewardedAd();
+    }
+
+    private void OnRewardAdEarnedEvent(Yodo1U3dRewardAd ad)
+    {
+        RewardFuntion?.Invoke(true);
+        RewardFuntion = null;
+        Debug.Log("[Yodo1 Mas] OnRewardAdEarnedEvent event received");
     }
 }

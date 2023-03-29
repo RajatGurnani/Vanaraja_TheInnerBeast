@@ -17,6 +17,7 @@ public class PlayerCollision : MonoBehaviour
     {
         if ((other.CompareTag(Tags.Enemy) || other.CompareTag(Tags.Tree) || other.CompareTag(Tags.Stone)) && !invincible && !gameOver)
         {
+            Debug.Log("Double Event");
             GameManager.GameOver?.Invoke();
         }
 

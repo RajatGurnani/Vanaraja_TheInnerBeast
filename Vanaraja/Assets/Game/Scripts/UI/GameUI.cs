@@ -161,8 +161,8 @@ public class GameUI : MonoBehaviour
         commonPanel.SetActive(true);
         gameOverPanel.SetActive(true);
         playerScore.SaveStats();
-        gameoverScoreText.text = $"{playerScore.score:0}";
-        gameoverHighScoreText.text = $"BestScore- {playerScore.highscore:0}";
+        gameoverScoreText.text = $"{(int)playerScore.score}";
+        gameoverHighScoreText.text = $"BestScore- {(int)playerScore.highscore}";
     }
 
     /// <summary>
@@ -189,8 +189,8 @@ public class GameUI : MonoBehaviour
 
     public void WatchAdToContinue()
     {
-        Debug.Log("ad possible- " + AdsManager.Instance.rewardedAd.CanShowAd());
-        if (AdsManager.Instance.rewardedAd.CanShowAd())
+        Debug.Log("ad possible- " + AdsManager.Instance.CanShowRewardedAd());
+        if (AdsManager.Instance.CanShowRewardedAd())
         {
             if (coroutine != null)
             {
@@ -202,6 +202,7 @@ public class GameUI : MonoBehaviour
 
     public void ContinueForAd(bool value)
     {
+        Debug.Log("triggered");
         if (true)
         {
             retryCounter.IncrementRetries();

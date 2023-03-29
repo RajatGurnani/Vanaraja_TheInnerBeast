@@ -1,24 +1,30 @@
+using System.Collections;
 using UnityEngine;
 
 public class GameOverInterstitial : MonoBehaviour
 {
     public float interstitialTime = 5f;
 
+    Coroutine coroutine;
+    public bool isRunning = true;
+
     public void Awake()
     {
-        if (!AdsManager.Instance.interstitialAd.CanShowAd())
-        {
-            AdsManager.Instance.RequestAndLoadInterstitial();
-            enabled = false;
-        }
-        else
-        {
-            Invoke(nameof(ShowInterstitial), interstitialTime);
-        }
+        coroutine = StartCoroutine(nameof(ShowInterstitial));
     }
 
-    public void ShowInterstitial()
+    IEnumerator ShowInterstitial()
     {
+        yield return new WaitForSeconds(interstitialTime);
+        isRunning = false;
         AdsManager.Instance.ShowInterstitial();
+    }
+
+    private void OnDisable()
+    {
+        if (isRunning)
+        {
+            StopCoroutine(coroutine);
+        }
     }
 }
