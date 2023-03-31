@@ -1,7 +1,7 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// It will contain the option of changing the 
@@ -19,8 +19,13 @@ public class SettingsMenu : MonoBehaviour
     public Slider sfxSlider;
     AudioManager audioManager;
 
-    public Slider masterSlider;
+    [Header("Render Scale")]
     public Slider renderScaleSlider;
+
+    [Header("Vibration")]
+    public Toggle vibrationToggle;
+    public bool usingVibration = true;
+    public const string USE_VIBRATION = "USE_VIBRATION";
 
     [Header("Control Schemes")]
     public ToggleGroup controlsToggle;
@@ -28,8 +33,6 @@ public class SettingsMenu : MonoBehaviour
     public Toggle leftRightToggle;
     public const string USING_TILT_CONTROLS = "USING_TILT_CONTROLS";
     public bool usingTilt = false;
-
-    public Toggle vibrationToggle;
 
     [Header("Quality")]
     public UniversalRenderPipelineAsset urpAsset;
@@ -41,10 +44,38 @@ public class SettingsMenu : MonoBehaviour
     private void Start()
     {
         audioManager = AudioManager.Instance;
-        Init();
-        LoadControlScheme();
+        LoadSoundSettings();
         LoadRenderScale();
+        LoadControlScheme();
     }
+
+    #region Sound Settings
+
+    /// <summary>
+    /// Initializing the slider values without
+    /// triggering their onValueChangedFuntion
+    /// </summary>
+    public void LoadSoundSettings()
+    {
+        sfxSlider.SetValueWithoutNotify(audioManager.sfx * 10);
+        musicSlider.SetValueWithoutNotify(audioManager.music * 10);
+    }
+    public void ChangeSFXVolume()
+    {
+        UiSFXManager.Instance.PlaySFX(UiSFXManager.SFXType.SliderTick);
+        audioManager.SetSFXVolume(sfxSlider.value / 10);
+    }
+
+    //public void ChangeMasterVolume() => audioManager.SetMasterVolume(masterSlider.value);
+    public void ChangeMusicVolume()
+    {
+        UiSFXManager.Instance.PlaySFX(UiSFXManager.SFXType.SliderTick);
+        audioManager.SetMusicVolume(musicSlider.value / 10);
+    }
+
+    #endregion
+
+    #region Control Settings
 
     public void LoadControlScheme()
     {
@@ -57,7 +88,20 @@ public class SettingsMenu : MonoBehaviour
         tiltToggle.SetIsOnWithoutNotify(usingTilt);
         leftRightToggle.SetIsOnWithoutNotify(!usingTilt);
     }
+    public void SwitchControls(Toggle toggle)
+    {
+        if (toggle == tiltToggle)
+        {
+            usingTilt = toggle.isOn;
+        }
+        Debug.Log("usingTilt- " + usingTilt);
+        PlayerPrefs.SetInt(USING_TILT_CONTROLS, usingTilt ? 1 : 0);
+        PlayerPrefs.Save();
+    }
 
+    #endregion
+
+    #region Render Settings
     public void LoadRenderScale()
     {
         if (!PlayerPrefs.HasKey(SCALING))
@@ -77,62 +121,51 @@ public class SettingsMenu : MonoBehaviour
             case 0:
                 qualityText.text = "GRAPHICS: HIGH";
                 urpAsset.renderScale = 1f;
-                //ScalableBufferManager.ResizeBuffers(1f, 1f);
                 break;
             case 1:
                 qualityText.text = "GRAPHICS: MEDIUM";
                 urpAsset.renderScale = 0.87f;
-                //ScalableBufferManager.ResizeBuffers(0.87f, 0.87f);
                 break;
             case 2:
                 qualityText.text = "GRAPHICS: LOW";
                 urpAsset.renderScale = 0.75f;
-                //ScalableBufferManager.ResizeBuffers(0.75f, 0.75f);
                 break;
             default:
-                qualityText.text = "GRAPHICS: HIGH";
-                urpAsset.renderScale = 1f;
-                //ScalableBufferManager.ResizeBuffers(1f, 1f);
+                qualityText.text = "GRAPHICS: MEDIUM";
+                urpAsset.renderScale = 0.87f;
                 break;
         }
         PlayerPrefs.SetInt(SCALING, scale);
         PlayerPrefs.Save();
     }
+    #endregion
 
-    /// <summary>
-    /// Initializing the slider values without
-    /// triggering their onValueChangedFuntion
-    /// </summary>
-    public void Init()
+    #region Vibration Settings
+
+    public void LoadVibrationSettings()
     {
-        sfxSlider.SetValueWithoutNotify(audioManager.sfx * 10);
-        musicSlider.SetValueWithoutNotify(audioManager.music * 10);
-        //masterSlider.SetValueWithoutNotify(audioManager.master);
+        if (!PlayerPrefs.HasKey(USE_VIBRATION))
+        {
+            PlayerPrefs.SetInt(USE_VIBRATION, 1);
+            PlayerPrefs.Save();
+        }
+        usingVibration = PlayerPrefs.GetInt(USE_VIBRATION, 1) == 1;
+        vibrationToggle.SetIsOnWithoutNotify(usingVibration);
     }
 
-    public void SwitchControls(Toggle toggle)
+    public void ChangeVibrationSetting()
     {
-        if (toggle == tiltToggle)
-        {
-            usingTilt = toggle.isOn;
-        }
-        Debug.Log("usingTilt- " + usingTilt);
-        PlayerPrefs.SetInt(USING_TILT_CONTROLS, usingTilt ? 1 : 0);
+        usingVibration = vibrationToggle.isOn;
+        PlayerPrefs.SetInt(USE_VIBRATION, usingVibration ? 1 : 0);
         PlayerPrefs.Save();
     }
 
+    #endregion
+
+    #region Credits & Privacy
+
     public void OpenCreditsUrl() => Application.OpenURL(creditsUrl);
     public void OpenPrivacyPolicy() => Application.OpenURL(privacyUrl);
-    public void ChangeSFXVolume()
-    {
-        UiSFXManager.Instance.PlaySFX(UiSFXManager.SFXType.SliderTick);
-        audioManager.SetSFXVolume(sfxSlider.value / 10);
-    }
 
-    //public void ChangeMasterVolume() => audioManager.SetMasterVolume(masterSlider.value);
-    public void ChangeMusicVolume()
-    {
-        UiSFXManager.Instance.PlaySFX(UiSFXManager.SFXType.SliderTick);
-        audioManager.SetMusicVolume(musicSlider.value / 10);
-    }
+    #endregion
 }
