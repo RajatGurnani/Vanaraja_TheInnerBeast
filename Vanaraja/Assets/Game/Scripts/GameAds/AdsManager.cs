@@ -1,9 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using GoogleMobileAds;
-using GoogleMobileAds.Api;
 using System;
+using UnityEngine;
+using System.Collections;
+using GoogleMobileAds.Api;
 
 public class AdsManager : MonoBehaviour
 {
@@ -19,7 +17,7 @@ public class AdsManager : MonoBehaviour
     public RewardedAd rewardedAd;
 
     public string privacyUrl = "https://sites.google.com/view/nerdyquest/home";
-    private string rewardedID= "ca-app-pub-7409912642531316/9949235493";
+    private string rewardedID = "ca-app-pub-7409912642531316/9949235493";
     private string interstitialID = "ca-app-pub-7409912642531316/4845082627";
 
     public Action<bool> RewardFunction;
@@ -58,9 +56,6 @@ public class AdsManager : MonoBehaviour
     {
         FindObjectOfType<StartScene>().StartSplash();
         RequestConfiguration.Builder requestConfiguration = new RequestConfiguration.Builder();
-        requestConfiguration.SetTagForChildDirectedTreatment(TagForChildDirectedTreatment.Unspecified);
-        requestConfiguration.SetMaxAdContentRating(MaxAdContentRating.Unspecified);
-        requestConfiguration.SetTagForUnderAgeOfConsent(TagForUnderAgeOfConsent.Unspecified);
         MobileAds.SetRequestConfiguration(requestConfiguration.build());
         MobileAds.Initialize(initStatus => { });
         RequestAndLoadRewarded();
@@ -96,12 +91,25 @@ public class AdsManager : MonoBehaviour
 
     public AdRequest GetAdRequestBuild()
     {
-        return new AdRequest.Builder().AddExtra("npa", userValue).AddExtra("rdp", ccpaConsent).AddExtra("is_designed_for_families", "false").Build();
+        return new AdRequest.Builder().Build();
     }
 
     #region Interstitial
     public void RequestAndLoadInterstitial()
     {
+        if (interstitialAd != null)
+        {
+            if (!interstitialAd.CanShowAd())
+            {
+                interstitialAd.Destroy();
+                interstitialAd = null;
+            }
+            else
+            {
+                return;
+            }
+        }
+
         InterstitialAd.Load(interstitialID, GetAdRequestBuild(), (InterstitialAd ad, LoadAdError loadAdError) =>
         {
             if (loadAdError != null)
@@ -111,15 +119,30 @@ public class AdsManager : MonoBehaviour
 
             interstitialAd = ad;
 
+            ad.OnAdFullScreenContentOpened += () =>
+            {
+                Debug.Log("Interstitial ad opening.");
+            };
             ad.OnAdFullScreenContentClosed += () =>
             {
-                ad.Destroy();
+                Debug.Log("Interstitial ad closed.");
             };
-
+            ad.OnAdImpressionRecorded += () =>
+            {
+                Debug.Log("Interstitial ad recorded an impression.");
+            };
+            ad.OnAdClicked += () =>
+            {
+                Debug.Log("Interstitial ad recorded a click.");
+            };
             ad.OnAdFullScreenContentFailed += (AdError error) =>
             {
-                Debug.Log("Rewarded intersitial ad failed to show with error: " + error.GetMessage());
-                ad.Destroy();
+                Debug.Log("Interstitial ad failed to show with error: " + error.GetMessage());
+            };
+            ad.OnAdPaid += (AdValue adValue) =>
+            {
+                string msg = string.Format("{0} (currency: {1}, value: {2}", "Interstitial ad received a paid event.", adValue.CurrencyCode, adValue.Value);
+                Debug.Log(msg);
             };
         });
     }
@@ -130,10 +153,6 @@ public class AdsManager : MonoBehaviour
         {
             interstitialAd.Show();
         }
-        else
-        {
-            RequestAndLoadInterstitial();
-        }
     }
 
     #endregion
@@ -141,6 +160,19 @@ public class AdsManager : MonoBehaviour
     #region Rewarded
     public void RequestAndLoadRewarded()
     {
+        if (rewardedAd != null)
+        {
+            if (!rewardedAd.CanShowAd())
+            {
+                rewardedAd.Destroy();
+                rewardedAd = null;
+            }
+            else
+            {
+                return;
+            }
+        }
+
         RewardedAd.Load(rewardedID, GetAdRequestBuild(), (RewardedAd ad, LoadAdError loadError) =>
         {
             if (loadError != null)
@@ -155,6 +187,33 @@ public class AdsManager : MonoBehaviour
             }
 
             rewardedAd = ad;
+
+
+            ad.OnAdFullScreenContentOpened += () =>
+            {
+                Debug.Log("Rewarded ad opening.");
+            };
+            ad.OnAdFullScreenContentClosed += () =>
+            {
+                Debug.Log("Rewarded ad closed.");
+            };
+            ad.OnAdImpressionRecorded += () =>
+            {
+                Debug.Log("Rewarded ad recorded an impression.");
+            };
+            ad.OnAdClicked += () =>
+            {
+                Debug.Log("Rewarded ad recorded a click.");
+            };
+            ad.OnAdFullScreenContentFailed += (AdError error) =>
+            {
+                Debug.Log("Rewarded ad failed to show with error: " + error.GetMessage());
+            };
+            ad.OnAdPaid += (AdValue adValue) =>
+            {
+                string msg = string.Format("{0} (currency: {1}, value: {2}", "Rewarded ad received a paid event.", adValue.CurrencyCode, adValue.Value);
+                Debug.Log(msg);
+            };
         });
     }
 
@@ -177,16 +236,6 @@ public class AdsManager : MonoBehaviour
     public void TrueFunction()
     {
         RewardFunction?.Invoke(true);
-    }
-
-    public void UserEarnedReward(object sender, Reward reward)
-    {
-        RewardFunction(true);
-    }
-
-    public void OnAdClosed(object sender, EventArgs eventArgs)
-    {
-        RequestAndLoadRewarded();
     }
     #endregion
 
